@@ -1,0 +1,1 @@
+cron: python main.py

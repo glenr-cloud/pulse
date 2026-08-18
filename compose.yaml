@@ -1,0 +1,13 @@
+services:
+  api:
+    build: ./api
+    environment: { PORT: "3000" }
+  web:
+    build: ./web
+    ports: ["8080:8080"]
+    environment: { API_URL: "http://api:3000" }
+    depends_on: [api]
+  worker:
+    build: ./worker
+    environment: { API_URL: "http://api:3000" }
+    depends_on: [api]
