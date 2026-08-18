@@ -1,2 +1,2 @@
 kind: service
-exposure: public
+expose: public

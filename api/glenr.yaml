@@ -1,2 +1,2 @@
 kind: service
-exposure: internal
+expose: internal
