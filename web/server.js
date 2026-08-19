@@ -6,7 +6,11 @@
 const http = require("node:http");
 
 const PORT = process.env.PORT || 8080;
-const API_URL = process.env.API_URL || "http://localhost:3000";
+// On Glenr, `connects: [api]` injects API_HOST and API_PORT — the platform's
+// service-discovery convention. API_URL stays as the compose/local override.
+const API_URL =
+  process.env.API_URL ||
+  (process.env.API_HOST ? `http://${process.env.API_HOST}:${process.env.API_PORT || 80}` : "http://localhost:3000");
 
 async function fetchPings() {
   const res = await fetch(`${API_URL}/pings`, { signal: AbortSignal.timeout(3000) });

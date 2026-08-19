@@ -5,7 +5,13 @@ injected by a `type: service` connection.
 """
 import json, os, socket, sys, time, urllib.request
 
-API_URL = os.environ.get("API_URL", "http://localhost:3000")
+# On Glenr, `connects: [api]` injects API_HOST/API_PORT; API_URL stays the
+# compose/local override.
+API_URL = os.environ.get("API_URL") or (
+    f"http://{os.environ['API_HOST']}:{os.environ.get('API_PORT', '80')}"
+    if os.environ.get("API_HOST")
+    else "http://localhost:3000"
+)
 EVERY = int(os.environ.get("PING_EVERY_SECONDS", "30"))
 me = socket.gethostname()
 

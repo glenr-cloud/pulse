@@ -1,0 +1,32 @@
+# pulse as a RESOURCE SET (design/83, D-83.10): one file declaring the whole
+# repository's contribution. Connect this repository to a cell and the plan
+# screen shows exactly these four apps, their edges and their addresses —
+# then one apply creates them all.
+#
+# `connects: [api]` is BOTH the network allow-edge and the injected address:
+# each consumer receives API_HOST and API_PORT. The per-directory glenr.yaml
+# files remain for anyone deploying a single directory through the app form.
+apps:
+  - name: web
+    dir: web
+    kind: service
+    expose: public
+    connects: [api]
+
+  - name: api
+    dir: api
+    kind: service
+    expose: internal
+    port: 3000
+
+  - name: worker
+    dir: worker
+    kind: worker
+    connects: [api]
+
+  - name: cron
+    dir: cron
+    kind: cron
+    cron:
+      schedule: "*/5 * * * *"
+    connects: [api]

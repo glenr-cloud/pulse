@@ -5,7 +5,13 @@ A cron run is a short process: read, print, exit 0. API_URL as above.
 import json, os, sys, urllib.request
 from collections import Counter
 
-API_URL = os.environ.get("API_URL", "http://localhost:3000")
+# On Glenr, `connects: [api]` injects API_HOST/API_PORT; API_URL stays the
+# compose/local override.
+API_URL = os.environ.get("API_URL") or (
+    f"http://{os.environ['API_HOST']}:{os.environ.get('API_PORT', '80')}"
+    if os.environ.get("API_HOST")
+    else "http://localhost:3000"
+)
 try:
     with urllib.request.urlopen(f"{API_URL}/pings", timeout=5) as r:
         data = json.load(r)
