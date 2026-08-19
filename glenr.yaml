@@ -21,7 +21,7 @@ apps:
 
   - name: worker
     dir: worker
-    kind: worker
+    kind: task
     connects: [api]
 
   - name: cron
