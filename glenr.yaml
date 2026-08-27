@@ -1,14 +1,20 @@
 # beacon — a signals board that can change countries without changing a line.
 #
-# This is the whole system: a public web page, an internal api, a managed
-# Postgres, and two tasks that carry the data between cells. Connect this
-# repository to a cell and one apply creates all five.
+# This is the whole system: a public web page, an internal api, and a managed
+# Postgres. Connect this repository to a cell and one apply creates all three.
 #
 # ☠️ THE POINT OF THE DEMO IS THAT THIS FILE IS IDENTICAL IN BOTH CELLS.
 # Nothing here names Hetzner, Scaleway, Helsinki or Paris. The page knows which
 # zone is serving it because it reads the `Host` header off the request that
 # reached it — the zone segment in that name is put there by the platform's own
 # routing, so the badge on screen is evidence rather than configuration.
+#
+# ☠️ AND NOTHING HERE MOVES DATA. There is no export task and no import task,
+# because carrying a database between clouds is the platform's job rather than
+# something every customer should have to write, get right, and keep working.
+# When this system moves, the platform mints the carry itself — beside the
+# database, with the credentials it already holds, and gone again afterwards.
+# What you can see in this file is the system; what you cannot see is the move.
 #
 # `connects:` is both the network allow-edge and the injected address. A
 # connection to a service injects the pair <NAME>_HOST/<NAME>_PORT; a connection
@@ -47,24 +53,3 @@ resources:
   - name: maindb
     kind: postgres
     storage: 10
-
-  # ── The crossing ──────────────────────────────────────────────────────────
-  # Two tasks, one direction each. They hold no object-storage credential: each
-  # is handed a presigned URL through the console's write-only variable surface
-  # at the moment it runs, so the secret has an expiry, never enters this
-  # repository, and is gone by the time anyone watches the recording.
-  #
-  #   export  needs CARRY_PUT_URL   — dumps public.signals and uploads it
-  #   import  needs CARRY_GET_URL   — downloads, then truncates and restores
-  #
-  # Either task refuses with one clear line if its URL is unset. `import`
-  # downloads before it truncates, so a failed fetch changes nothing.
-  - name: export
-    kind: task
-    image: ghcr.io/glenr-cloud/beacon-export@sha256:a8cdfffd5289e3ae66704246b264eaebc6d0a633e62b4903ab715060e77c68de
-    connects: [maindb]
-
-  - name: import
-    kind: task
-    image: ghcr.io/glenr-cloud/beacon-import@sha256:6a00dae7f1c6e10ebe560d53d35b3652fdd52b9ac25788bf303c99f7e53df454
-    connects: [maindb]
