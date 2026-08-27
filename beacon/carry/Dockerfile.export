@@ -1,0 +1,18 @@
+# beacon export — Postgres 18 client tools plus curl, and one script.
+#
+# Both carry images are byte-identical below the ENTRYPOINT so they share every
+# layer in the registry: the second push is metadata.
+FROM postgres:18-alpine
+
+# curl is not in the base image; the tasks speak to object storage over plain
+# HTTP with a presigned URL and need nothing else.
+RUN apk add --no-cache curl
+
+COPY export.sh import.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/export.sh /usr/local/bin/import.sh
+
+# ☠️ NON-ROOT — see the web image's Dockerfile. `postgres` is uid 70 in this
+# image and owns nothing this task writes; the dump goes to a mktemp under /tmp.
+USER postgres
+
+ENTRYPOINT ["/usr/local/bin/export.sh"]

@@ -1,0 +1,11 @@
+# beacon import — the same image as beacon-export with the other entrypoint.
+FROM postgres:18-alpine
+
+RUN apk add --no-cache curl
+
+COPY export.sh import.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/export.sh /usr/local/bin/import.sh
+
+USER postgres
+
+ENTRYPOINT ["/usr/local/bin/import.sh"]
