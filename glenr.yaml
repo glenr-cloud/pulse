@@ -1,40 +1,70 @@
-# pulse as a RESOURCE SET (design/83, D-83.10): one file declaring the whole
-# repository's contribution. Connect this repository to a cell and the plan
-# screen shows exactly these four resources, their edges and their addresses —
-# then one apply creates them all.
+# beacon — a signals board that can change countries without changing a line.
 #
-# `connects: [api]` is BOTH the network allow-edge and the injected address:
-# each consumer receives API_HOST and API_PORT. The per-directory glenr.yaml
-# files remain for anyone deploying a single directory on its own; those are
-# `kind:` files and design/97 did not touch them.
+# This is the whole system: a public web page, an internal api, a managed
+# Postgres, and two tasks that carry the data between cells. Connect this
+# repository to a cell and one apply creates all five.
 #
-# ☠️ THE ROOT KEY IS `resources:` AND USED TO BE `apps:` (design/97 Q-97.1).
-# Only this one line changed — every row below is byte-identical. The parser
-# still RECOGNISES `apps:` on purpose, so a file that has not been converted
-# gets "glenr.yaml's root key is resources: now — this file still says apps:.
-# Rename the key; each row is unchanged" instead of a refusal that misdiagnoses
-# the file as a per-resource one.
+# ☠️ THE POINT OF THE DEMO IS THAT THIS FILE IS IDENTICAL IN BOTH CELLS.
+# Nothing here names Hetzner, Scaleway, Helsinki or Paris. The page knows which
+# zone is serving it because it reads the `Host` header off the request that
+# reached it — the zone segment in that name is put there by the platform's own
+# routing, so the badge on screen is evidence rather than configuration.
+#
+# `connects:` is both the network allow-edge and the injected address. A
+# connection to a service injects the pair <NAME>_HOST/<NAME>_PORT; a connection
+# to a database injects seven names, of which MAINDB_URL is the one the api
+# uses — and it already carries sslmode=require, so TLS is the ordinary path
+# rather than something to remember.
 resources:
   - name: web
-    dir: web
     kind: service
     expose: public
+    port: 8080
+    health: /healthz
+    image: ghcr.io/glenr-cloud/beacon-web@sha256:90fdd4e6bc111430ecc69f3fe48e5c6d7769713fff5c6c7b9375114d0f135c30
     connects: [api]
 
+  # ☠️ NO `health:` HERE, DELIBERATELY, AND IT IS NOT AN OVERSIGHT.
+  # A health path becomes a readiness probe in the derived document, and the
+  # zone renderer reuses a readiness-only path for the LIVENESS probe as well.
+  # Liveness starts at 30s and kills after three 10s failures, so an api that is
+  # still waiting for a database being provisioned would be killed at ~60s and
+  # restart forever while the database came up healthy beside it. The api
+  # instead opens its port immediately and answers 503 with "the database is
+  # still being provisioned" until the pool is live, which the web page renders
+  # as "api warming". No probe is needed to make that correct, and adding one
+  # would make it fatal.
   - name: api
-    dir: api
     kind: service
     expose: internal
     port: 3000
+    image: ghcr.io/glenr-cloud/beacon-api@sha256:de35ceeaca4f620e30c9cd4de534a6474c57d7ba25bffee0f227698785811afe
+    connects: [maindb]
 
-  - name: worker
-    dir: worker
-    kind: worker
-    connects: [api]
+  # A database row reads name, kind, storage and version — and nothing else.
+  # `version` is omitted because the platform's default major is the one we
+  # want; writing it would be a number to maintain for no change in behaviour.
+  - name: maindb
+    kind: postgres
+    storage: 10
 
-  - name: cron
-    dir: cron
-    kind: cron
-    cron:
-      schedule: "*/5 * * * *"
-    connects: [api]
+  # ── The crossing ──────────────────────────────────────────────────────────
+  # Two tasks, one direction each. They hold no object-storage credential: each
+  # is handed a presigned URL through the console's write-only variable surface
+  # at the moment it runs, so the secret has an expiry, never enters this
+  # repository, and is gone by the time anyone watches the recording.
+  #
+  #   export  needs CARRY_PUT_URL   — dumps public.signals and uploads it
+  #   import  needs CARRY_GET_URL   — downloads, then truncates and restores
+  #
+  # Either task refuses with one clear line if its URL is unset. `import`
+  # downloads before it truncates, so a failed fetch changes nothing.
+  - name: export
+    kind: task
+    image: ghcr.io/glenr-cloud/beacon-export@sha256:a8cdfffd5289e3ae66704246b264eaebc6d0a633e62b4903ab715060e77c68de
+    connects: [maindb]
+
+  - name: import
+    kind: task
+    image: ghcr.io/glenr-cloud/beacon-import@sha256:6a00dae7f1c6e10ebe560d53d35b3652fdd52b9ac25788bf303c99f7e53df454
+    connects: [maindb]
