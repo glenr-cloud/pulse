@@ -1,8 +1,9 @@
-FROM golang:1.22-alpine AS build
+FROM golang:1.25-alpine AS build
 WORKDIR /src
-COPY go.mod ./
-COPY main.go ./
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /api .
+COPY go.mod go.sum ./
+RUN go mod download
+COPY *.go ./
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /api .
 
 FROM scratch
 COPY --from=build /api /api
