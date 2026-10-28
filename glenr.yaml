@@ -14,6 +14,12 @@
 # gets "glenr.yaml's root key is resources: now — this file still says apps:.
 # Rename the key; each row is unchanged" instead of a refusal that misdiagnoses
 # the file as a per-resource one.
+#
+# DATABASE (GE-448): `api` stores its pings in PostgreSQL when a database is
+# connected to it, and in memory otherwise. No database row is declared here: a
+# `connects:` to a database that no file or cell declares is refused, so the
+# database is added to the cell first and `api` is connected to it afterwards.
+# `api` reads whichever <NAME>_URL the connection injects (see api/store.go).
 resources:
   - name: web
     dir: web
