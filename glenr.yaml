@@ -32,7 +32,6 @@ resources:
     kind: service
     expose: internal
     port: 3000
-    connects: [maindb]
 
   - name: worker
     dir: worker
