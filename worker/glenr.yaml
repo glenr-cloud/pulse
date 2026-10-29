@@ -1,1 +1,2 @@
 kind: worker
+connects: [api]

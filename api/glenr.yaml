@@ -1,2 +1,3 @@
 kind: service
-expose: internal
+expose: public
+port: 3000
