@@ -1,3 +1,4 @@
 kind: service
 expose: public
 port: 3000
+health: /nope
