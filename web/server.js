@@ -44,3 +44,4 @@ http.createServer(async (req, res) => {
     res.end(page(null, `cannot reach the api: ${e.message}`));
   }
 }).listen(PORT, () => console.log(`pulse/web on :${PORT}, api at ${API_URL}`));
+// demo walk (demo-g3 2026-11-01T16:04:36.590Z)
