@@ -1,6 +1,6 @@
-// hello — one service for the enablement demo (branch demo-prep). Version 1.
+// hello — one service for the enablement demo (branch demo-prep). Version 2.
 const http = require("node:http");
-const VERSION = "v1";
+const VERSION = "v2";
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
   if (req.url === "/healthz") { res.writeHead(200); return res.end("ok\n"); }
