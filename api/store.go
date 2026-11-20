@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,8 +18,13 @@ type store interface {
 	add(ctx context.Context, p ping) error
 	// list returns up to maxPings pings, oldest first.
 	list(ctx context.Context) ([]ping, error)
+	// rowCount returns the number of rows in a named table, for /exit-check.
+	rowCount(ctx context.Context, table string) (int64, error)
 	name() string
 }
+
+// errNoDatabase is returned by the memory store: there is nothing to count.
+var errNoDatabase = errors.New("no database configured")
 
 // databaseURL finds the PostgreSQL URL the platform injected. A `connects:`
 // to a database injects <NAME>_URL (and six more names), and the name is the
@@ -75,6 +81,10 @@ func (m *memoryStore) list(_ context.Context) ([]ping, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return append([]ping(nil), m.pings...), nil
+}
+
+func (m *memoryStore) rowCount(_ context.Context, _ string) (int64, error) {
+	return 0, errNoDatabase
 }
 
 // ── PostgreSQL ──────────────────────────────────────────────────────────────
@@ -171,4 +181,20 @@ func (s *postgresStore) list(ctx context.Context) ([]ping, error) {
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// rowCount returns the number of rows in table, for /exit-check. The table
+// name arrives from the gate cell's configuration; it is quoted as an
+// identifier so it cannot change the statement.
+func (s *postgresStore) rowCount(ctx context.Context, table string) (int64, error) {
+	pool := s.pool.Load()
+	if pool == nil {
+		return 0, errConnecting
+	}
+	ident := pgx.Identifier(strings.Split(table, ".")).Sanitize()
+	var n int64
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+ident).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
 }

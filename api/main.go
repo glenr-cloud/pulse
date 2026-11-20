@@ -34,7 +34,25 @@ type server struct {
 func (s *server) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok\n")) })
+	mux.HandleFunc("/exit-check", s.exitCheck)
 	mux.HandleFunc("/pings", s.pings)
+	// The public route the exit test compares (P-5) points at "/". Answer it
+	// with a stable body; every other unmatched path stays a 404.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write([]byte("pulse\n"))
+	})
+	return mux
+}
+
+// adminHandler is the second listener's mux. It has no public route: the
+// worker reaches it on the Service port named `admin` (design/145 §4.2).
+func (s *server) adminHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok\n")) })
 	return mux
 }
 
@@ -86,6 +104,20 @@ func main() {
 		log.Printf("pulse/api: no database variable; storing pings in memory")
 	}
 	srv := &server{store: st}
+	// Two listeners: the public one (PORT) and the `admin` port the worker
+	// reaches (design/145 §4.2). Both must be up for the exit test, so the
+	// admin listener runs on its own goroutine and a bind failure stops the
+	// process rather than leaving a half-up app.
+	adminPort := os.Getenv("ADMIN_PORT")
+	if adminPort == "" {
+		adminPort = "3001"
+	}
+	go func() {
+		log.Printf("pulse/api admin listening on :%s", adminPort)
+		if err := http.ListenAndServe(":"+adminPort, srv.adminHandler()); err != nil {
+			log.Fatalf("pulse/api admin listener: %v", err)
+		}
+	}()
 	log.Printf("pulse/api listening on :%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, srv.handler()))
 }

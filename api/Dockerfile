@@ -9,4 +9,5 @@ FROM scratch
 COPY --from=build /api /api
 USER 65534:65534
 EXPOSE 3000
+EXPOSE 3001
 ENTRYPOINT ["/api"]
