@@ -86,6 +86,35 @@ func TestExitCheckMissingFileIsReported(t *testing.T) {
 	}
 }
 
+// Concurrent checks on one pod must not corrupt each other's scratch file;
+// the body has to stay a function of the inputs for P-5.
+func TestScratchCheckConcurrent(t *testing.T) {
+	dir := t.TempDir()
+	const n = 16
+	errs := make(chan string, n)
+	for i := 0; i < n; i++ {
+		go func() { errs <- scratchCheck(dir) }()
+	}
+	for i := 0; i < n; i++ {
+		if got := <-errs; got != "ok" {
+			t.Errorf("concurrent scratchCheck = %q, want ok", got)
+		}
+	}
+}
+
+// The table name is trimmed, so a value carrying a trailing newline from a
+// YAML/values source is still accepted instead of silently disabling the
+// row count on both clusters.
+func TestDBTableTrimmed(t *testing.T) {
+	got := dbCheck(context.Background(), "  seed\n", newMemoryStore())
+	if got.Table != "seed" {
+		t.Errorf("table = %q, want seed", got.Table)
+	}
+	if got.Note != errNoDatabase.Error() {
+		t.Errorf("note = %q, want the no-database note", got.Note)
+	}
+}
+
 func TestValidTable(t *testing.T) {
 	ok := []string{"pings", "public.pings", "_x", "a1"}
 	bad := []string{"", "Pings", "1abc", "a.b.c", "pings; drop table x", `pings"`}

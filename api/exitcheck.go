@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -140,15 +139,26 @@ func hashFile(path string) string {
 }
 
 // scratchCheck writes a file to the scratch volume and reads it back. The
-// content is fixed so a healthy cluster reports simply "ok".
+// content is fixed so a healthy cluster reports simply "ok". The file name is
+// unique per request (os.CreateTemp) so two concurrent GETs on one pod cannot
+// truncate each other's file and make the body non-deterministic.
 func scratchCheck(dir string) string {
 	if dir == "" {
 		return "error: " + envScratch + " is not set"
 	}
 	const content = "pulse exit-check scratch"
-	path := filepath.Join(dir, "exit-check.txt")
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+	f, err := os.CreateTemp(dir, "exit-check-*")
+	if err != nil {
+		return "error: create: " + err.Error()
+	}
+	path := f.Name()
+	defer os.Remove(path)
+	if _, err := f.WriteString(content); err != nil {
+		f.Close()
 		return "error: write: " + err.Error()
+	}
+	if err := f.Close(); err != nil {
+		return "error: close: " + err.Error()
 	}
 	got, err := os.ReadFile(path)
 	if err != nil {
@@ -180,6 +190,7 @@ func validTable(table string) bool {
 }
 
 func dbCheck(ctx context.Context, table string, st store) exitCheckDB {
+	table = strings.TrimSpace(table)
 	if table == "" {
 		return exitCheckDB{Note: envTable + " is not set"}
 	}
